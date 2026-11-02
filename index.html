@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AKM Square | EV Motor Digital Twin</title>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+<style>
+:root{
+  --bg:#080d19;--panel:#101a2b;--border:#23334a;
+  --cyan:#35d9ff;--green:#38e5a4;--orange:#ffb454;
+  --text:#eaf3ff;--muted:#8fa4bf;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:"Segoe UI",Arial,sans-serif;color:var(--text);
+  background:radial-gradient(ellipse at 20% 0%,#12243c 0%,transparent 40%),
+  radial-gradient(ellipse at 90% 90%,#0b2534 0%,transparent 35%),var(--bg);
+}
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 5%;border-bottom:1px solid var(--border);
+  background:rgba(8,13,25,.8);gap:20px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{width:72px;height:62px;object-fit:contain;mix-blend-mode:screen}
+.brand h1{margin:0;font-size:21px;letter-spacing:1px}
+.brand p{margin:5px 0 0;color:var(--muted);font-size:12px;letter-spacing:2px}
+.header-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pill{
+  padding:8px 13px;border:1px solid var(--border);border-radius:30px;
+  color:var(--muted);font-size:12px;background:#0c1525;
+}
+.dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;
+  margin-right:7px;background:var(--green);
+}
+main{max-width:1450px;margin:auto;padding:28px 5%}
+.page-title{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:15px;flex-wrap:wrap;margin-bottom:22px;
+}
+.page-title h2{margin:0;font-size:25px}
+.page-title p{color:var(--muted);margin:7px 0 0;font-size:13px}
+.sensor-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.card{
+  background:linear-gradient(145deg,rgba(17,28,46,.96),rgba(10,18,32,.96));
+  border:1px solid var(--border);border-radius:16px;padding:20px;
+  min-width:0;box-shadow:0 8px 25px rgba(0,0,0,.12);
+}
+.metric-label{color:var(--muted);font-size:13px}
+.metric-value{font-size:30px;font-weight:650;margin:14px 0 8px}
+.metric-unit{color:var(--muted);font-size:13px}
+.metric-foot{font-size:12px;color:var(--cyan);margin-top:14px}
+.content-grid{
+  display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin-top:18px;
+}
+.motor-card{min-height:440px;position:relative;overflow:hidden}
+.section-title{font-size:16px;margin:0 0 16px}
+#motorCanvas{width:100%;height:350px;display:block}
+.motor-label{
+  position:absolute;left:20px;top:55px;color:var(--muted);font-size:12px;
+}
+.motor-status{
+  display:inline-flex;align-items:center;gap:8px;color:var(--green);
+  font-size:12px;margin-top:8px;
+}
+.status-dot{
+  width:8px;height:8px;background:var(--green);border-radius:50%;
+  box-shadow:0 0 10px var(--green);
+}
+.alert-banner{
+  display:none;align-items:center;gap:12px;padding:15px 18px;
+  margin-bottom:18px;border:1px solid rgba(255,180,84,.55);
+  border-radius:13px;background:rgba(255,180,84,.10);
+  color:var(--orange);animation:alertPulse 1.5s infinite;
+}
+.alert-banner.show{display:flex}
+.alert-icon{font-size:24px}
+.alert-banner strong{display:block;font-size:14px}
+.alert-banner small{
+  display:block;color:#d7b98c;margin-top:4px;font-size:12px;
+}
+@keyframes alertPulse{
+  0%,100%{border-color:rgba(255,180,84,.35)}
+  50%{border-color:rgba(255,180,84,.95)}
+}
+.ml-card{min-height:440px}
+.ml-header{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:10px;flex-wrap:wrap;
+}
+.ml-badge{
+  border:1px solid rgba(53,217,255,.3);color:var(--cyan);
+  background:rgba(53,217,255,.08);border-radius:20px;
+  padding:6px 10px;font-size:11px;
+}
+.ml-result{
+  border:1px solid var(--border);background:rgba(7,14,26,.7);
+  border-radius:13px;padding:18px;margin-top:15px;
+}
+.ml-result-label{font-size:12px;color:var(--muted)}
+.ml-result-value{
+  font-size:23px;font-weight:650;margin-top:9px;color:var(--cyan);
+}
+.ml-note{
+  color:var(--muted);font-size:12px;line-height:1.6;margin-top:15px;
+}
+.footer{
+  color:#61748d;font-size:11px;text-align:center;padding:25px 10px;
+}
+@media(max-width:950px){
+  .sensor-grid{grid-template-columns:repeat(2,1fr)}
+  .content-grid{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  main{padding:20px 4%}
+  .sensor-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .card{padding:15px}
+  .metric-value{font-size:24px}
+  .brand h1{font-size:17px}
+  .logo{width:55px;height:50px}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="brand">
+    <img class="logo" src="akm-square-logo.png.jpeg" alt="AKM Square Logo">
+    <div>
+      <h1>AKM SQUARE</h1>
+      <p>EV MOTOR DIGITAL TWIN</p>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div class="pill">
+      <span class="dot"></span>
+      <span>Connected</span>
+    </div>
+    <div class="pill">MOTOR MONITORING</div>
+  </div>
+</header>
+
+<main>
+
+  <div class="page-title">
+    <div>
+      <h2>Motor Monitoring Dashboard</h2>
+      <p>Digital twin visualization and intelligent motor condition monitoring</p>
+    </div>
+    <div class="pill">
+      System: <span id="systemStatus">Awaiting data</span>
+    </div>
+  </div>
+
+  <!-- VIBRATION ALERT -->
+
+  <div class="alert-banner" id="vibrationAlert" role="alert">
+    <div class="alert-icon">⚠️</div>
+    <div>
+      <strong>VIBRATION INCREASED</strong>
+      <small id="alertMessage">
+        Vibration level is above the configured threshold.
+      </small>
+    </div>
+  </div>
+
+  <!-- SENSOR CARDS -->
+
+  <div class="sensor-grid">
+
+    <div class="card">
+      <div class="metric-label">Motor Temperature</div>
+      <div class="metric-value">
+        <span id="temperature">--</span>
+        <span class="metric-unit">°C</span>
+      </div>
+      <div class="metric-foot">Thermal monitoring</div>
+    </div>
+
+    <div class="card">
+      <div class="metric-label">Motor Current</div>
+      <div class="metric-value">
+        <span id="current">--</span>
+        <span class="metric-unit">A</span>
+      </div>
+      <div class="metric-foot">Electrical monitoring</div>
+    </div>
+
+    <div class="card">
+      <div class="metric-label">Vibration</div>
+      <div class="metric-value">
+        <span id="vibration">--</span>
+        <span class="metric-unit">g</span>
+      </div>
+      <div class="metric-foot">Mechanical monitoring</div>
+    </div>
+
+    <div class="card">
+      <div class="metric-label">Motor Condition</div>
+      <div class="metric-value" id="motorCondition" style="font-size:22px">
+        Awaiting
+      </div>
+      <div class="metric-foot" id="conditionNote">
+        Waiting for vibration data
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MOTOR MODEL + ML -->
+
+  <div class="content-grid">
+
+    <div class="card motor-card">
+      <h3 class="section-title">3D Motor Digital Twin</h3>
+      <div class="motor-label">Rotating motor model</div>
+
+      <div id="motorCanvas"></div>
+
+      <div class="motor-status">
+        <span class="status-dot"></span>
+        Motor model running
+      </div>
+    </div>
+
+    <!-- ML CARD: ONLY MOTOR STATUS + PREDICTED ALERT -->
+
+    <div class="card ml-card">
+
+      <div class="ml-header">
+        <h3 class="section-title">AI/ML Prognostics</h3>
+        <span class="ml-badge">INTELLIGENT ANALYSIS</span>
+      </div>
+
+      <div class="ml-result">
+        <div class="ml-result-label">Motor Status</div>
+        <div class="ml-result-value" id="mlPrediction">
+          Awaiting Data
+        </div>
+      </div>
+
+      <div class="ml-result">
+        <div class="ml-result-label">Predicted Alert</div>
+        <div class="ml-result-value" id="mlAlert">
+          No Alert
+        </div>
+      </div>
+
+      <div class="ml-note">
+        Intelligent motor condition monitoring and predictive alert display.
+      </div>
+
+    </div>
+
+  </div>
+
+</main>
+
+<div class="footer">
+  AKM Square | EV Motor Digital Twin | Intelligent Prognostics
+</div>
+
+<script>
+
+/* =================================
+   3D MOTOR MODEL
+================================= */
+
+const container = document.getElementById("motorCanvas");
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101a2b);
+
+const camera = new THREE.PerspectiveCamera(
+  45,
+  container.clientWidth / container.clientHeight,
+  0.1,
+  100
+);
+
+camera.position.set(4.5, 3.2, 6.5);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true
+});
+
+renderer.setSize(
+  container.clientWidth,
+  container.clientHeight
+);
+
+renderer.setPixelRatio(
+  Math.min(window.devicePixelRatio, 2)
+);
+
+container.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+
+const light = new THREE.DirectionalLight(0xffffff, 2);
+light.position.set(4, 5, 6);
+scene.add(light);
+
+const motor = new THREE.Group();
+scene.add(motor);
+
+const bodyMaterial = new THREE.MeshStandardMaterial({
+  color: 0x276b91,
+  metalness: 0.65,
+  roughness: 0.35
+});
+
+const darkMaterial = new THREE.MeshStandardMaterial({
+  color: 0x172b40,
+  metalness: 0.75,
+  roughness: 0.3
+});
+
+const shaftMaterial = new THREE.MeshStandardMaterial({
+  color: 0xb8c8d8,
+  metalness: 0.9,
+  roughness: 0.2
+});
+
+const cyanMaterial = new THREE.MeshStandardMaterial({
+  color: 0x35d9ff,
+  emissive: 0x087b9b,
+  metalness: 0.4,
+  roughness: 0.3
+});
+
+/* Motor body */
+
+const body = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.05, 1.05, 2.6, 32),
+  bodyMaterial
+);
+
+body.rotation.z = Math.PI / 2;
+motor.add(body);
+
+/* Cooling fins */
+
+for (let i = 0; i < 12; i++) {
+  const fin = new THREE.Mesh(
+    new THREE.TorusGeometry(1.06, 0.045, 8, 32),
+    darkMaterial
+  );
+
+  fin.rotation.y = Math.PI / 2;
+  fin.position.x = -1.15 + i * 0.2;
+  motor.add(fin);
+}
+
+/* End covers */
+
+const leftCover = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.12, 1.12, 0.18, 32),
+  darkMaterial
+);
+
+leftCover.rotation.z = Math.PI / 2;
+leftCover.position.x = -1.35;
+motor.add(leftCover);
+
+const rightCover = leftCover.clone();
+rightCover.position.x = 1.35;
+motor.add(rightCover);
+
+/* Rotating shaft */
+
+const shaftAssembly = new THREE.Group();
+shaftAssembly.position.x = 1.52;
+motor.add(shaftAssembly);
+
+const shaft = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.16, 0.16, 1.25, 24),
+  shaftMaterial
+);
+
+shaft.rotation.z = Math.PI / 2;
+shaft.position.x = 0.5;
+shaftAssembly.add(shaft);
+
+/* Shaft marker */
+
+const shaftMarker = new THREE.Mesh(
+  new THREE.BoxGeometry(0.12, 0.36, 0.36),
+  cyanMaterial
+);
+
+shaftMarker.position.set(0.85, 0.12, 0);
+shaftAssembly.add(shaftMarker);
+
+/* Motor feet */
+
+for (const x of [-0.8, 0.8]) {
+  const foot = new THREE.Mesh(
+    new THREE.BoxGeometry(0.65, 0.18, 1.2),
+    darkMaterial
+  );
+
+  foot.position.set(x, -1.15, 0);
+  motor.add(foot);
+}
+
+/* Terminal box */
+
+const terminalBox = new THREE.Mesh(
+  new THREE.BoxGeometry(0.8, 0.45, 0.8),
+  darkMaterial
+);
+
+terminalBox.position.set(-0.1, 1.15, 0);
+motor.add(terminalBox);
+
+/* Floor grid */
+
+const grid = new THREE.GridHelper(
+  8,
+  20,
+  0x25465f,
+  0x1a2d42
+);
+
+grid.position.y = -1.35;
+scene.add(grid);
+
+/* Drag to rotate */
+
+let isDragging = false;
+let previousX = 0;
+
+container.addEventListener("pointerdown", event => {
+  isDragging = true;
+  previousX = event.clientX;
+});
+
+window.addEventListener("pointerup", () => {
+  isDragging = false;
+});
+
+window.addEventListener("pointermove", event => {
+  if (isDragging) {
+    motor.rotation.y +=
+      (event.clientX - previousX) * 0.01;
+
+    previousX = event.clientX;
+  }
+});
+
+/* Animation */
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (!isDragging) {
+    motor.rotation.y += 0.002;
+  }
+
+  shaftAssembly.rotation.x += 0.08;
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+/* Resize */
+
+window.addEventListener("resize", () => {
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(width, height);
+});
+
+
+/* =================================
+   FIREBASE CONFIGURATION
+================================= */
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+let firebaseReady = false;
+
+
+/* =================================
+   FIREBASE CONNECTION
+================================= */
+
+async function connectFirebase() {
+
+  if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+    return;
+  }
+
+  try {
+
+    const { initializeApp } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"
+    );
+
+    const { getDatabase, ref, onValue } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"
+    );
+
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+
+    onValue(
+      ref(database, "motor_data"),
+
+      snapshot => {
+
+        const data = snapshot.val();
+
+        if (data) {
+
+          firebaseReady = true;
+
+          updateDashboard({
+            temperature: Number(data.temperature ?? 0),
+            current: Number(data.current ?? 0),
+            vibration: Number(data.vibration ?? 0)
+          }, true);
+        }
+      },
+
+      error => {
+        console.error("Firebase error:", error);
+      }
+    );
+
+  } catch (error) {
+    console.error("Firebase setup error:", error);
+  }
+}
+
+
+/* =================================
+   VIBRATION ALERT
+================================= */
+
+let previousVibrationAlert = false;
+
+function showVibrationAlert(vibrationIncreased, vibration) {
+
+  const alertBox = document.getElementById("vibrationAlert");
+  const alertMessage = document.getElementById("alertMessage");
+
+  if (vibrationIncreased) {
+
+    alertBox.classList.add("show");
+
+    alertMessage.textContent =
+      "Vibration: " + vibration.toFixed(2) +
+      " g — above the 1.5 g threshold.";
+
+    if (
+      !previousVibrationAlert &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
+      new Notification("VIBRATION INCREASED", {
+        body:
+          "Motor vibration is " +
+          vibration.toFixed(2) +
+          " g. Threshold: 1.5 g."
+      });
+    }
+
+  } else {
+
+    alertBox.classList.remove("show");
+  }
+
+  previousVibrationAlert = vibrationIncreased;
+}
+
+
+/* =================================
+   ML DEMO PREDICTION
+================================= */
+
+function runMLPrediction(data) {
+
+  const vibration = Number(data.vibration);
+
+  const motorStatus = document.getElementById("mlPrediction");
+  const predictedAlert = document.getElementById("mlAlert");
+
+  if (vibration > 1.5) {
+
+    motorStatus.textContent = "Abnormal";
+    motorStatus.style.color = "var(--orange)";
+
+    predictedAlert.textContent = "⚠️ Motor Fault Alert";
+    predictedAlert.style.color = "var(--orange)";
+
+  } else {
+
+    motorStatus.textContent = "Normal";
+    motorStatus.style.color = "var(--green)";
+
+    predictedAlert.textContent = "No Alert";
+    predictedAlert.style.color = "var(--green)";
+  }
+}
+
+
+/* =================================
+   DASHBOARD UPDATE
+================================= */
+
+function updateDashboard(data, realData) {
+
+  const temperature = Number(data.temperature);
+  const current = Number(data.current);
+  const vibration = Number(data.vibration);
+
+  document.getElementById("temperature").textContent =
+    temperature.toFixed(1);
+
+  document.getElementById("current").textContent =
+    current.toFixed(2);
+
+  document.getElementById("vibration").textContent =
+    vibration.toFixed(2);
+
+  document.getElementById("systemStatus").textContent =
+    realData ? "Monitoring" : "Preview";
+
+  /* Vibration threshold condition */
+
+  const vibrationIncreased = vibration > 1.5;
+
+  const condition = vibrationIncreased
+    ? "VIBRATION INCREASED"
+    : "NORMAL";
+
+  const conditionColor = vibrationIncreased
+    ? "var(--orange)"
+    : "var(--green)";
+
+  document.getElementById("motorCondition").textContent =
+    condition;
+
+  document.getElementById("motorCondition").style.color =
+    conditionColor;
+
+  document.getElementById("conditionNote").textContent =
+    vibrationIncreased
+      ? "Vibration level is increasing"
+      : "Vibration within threshold";
+
+  /* ML card */
+
+  runMLPrediction(data);
+
+  /* Alert banner */
+
+  showVibrationAlert(vibrationIncreased, vibration);
+}
+
+
+/* =================================
+   PREVIEW VIBRATION SEQUENCE
+================================= */
+
+/*
+  First 7 readings: Normal vibration
+  Next 5 readings: Increasing vibration
+  Threshold: 1.5 g
+  Update interval: 3 seconds
+*/
+
+const vibrationSequence = [
+  0.42,
+  0.55,
+  0.48,
+  0.61,
+  0.52,
+  0.70,
+  0.64,
+  0.95,
+  1.25,
+  1.62,
+  1.85,
+  2.10
+];
+
+let vibrationIndex = 0;
+
+function showPreviewValues() {
+
+  if (firebaseReady) return;
+
+  const previewData = {
+
+    temperature:
+      35 + Math.random() * 8,
+
+    current:
+      0.7 + Math.random() * 0.8,
+
+    vibration:
+      vibrationSequence[vibrationIndex]
+  };
+
+  vibrationIndex++;
+
+  if (vibrationIndex >= vibrationSequence.length) {
+    vibrationIndex = 0;
+  }
+
+  updateDashboard(previewData, false);
+}
+
+showPreviewValues();
+
+setInterval(showPreviewValues, 3000);
+
+
+/* Browser notification permission */
+
+if (
+  "Notification" in window &&
+  Notification.permission === "default"
+) {
+  Notification.requestPermission();
+}
+
+connectFirebase();
+
+</script>
+
+</body>
+</html>
