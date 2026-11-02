@@ -18,8 +18,8 @@
 #include <string.h>
 
 // ---------- Wi-Fi ----------
-#define WIFI_SSID "Black"
-#define WIFI_PASS "123456789"
+#define WIFI_SSID "YOUR_WIFI_NAME"
+#define WIFI_PASS "YOUR_WIFI_PASSWORD"
 
 // ---------- Firebase ----------
 #define FIREBASE_HOST "akm-square-default-rtdb.firebaseio.com"
